@@ -26,8 +26,9 @@ def hsv_seg(img, para=(6, 62, 0, 26, 255, 255)):
 
 if __name__ == '__main__':
     # 8 220 106 20 255 255
-    beer_img = cv.imread('/home/hairui/Pictures/experiment/test_image.png')
-    beer_img = cv.flip(beer_img, 0)
+    # 133 26 0 180 69 77
+    # v = 165
+    beer_img = cv.imread('/home/hairui/Pictures/experiment/cup.jpeg')
     cv.imshow('original_img', beer_img)
     blurred_img = cv.GaussianBlur(beer_img, (7, 7), 0)
     beer_hsv = cv.cvtColor(blurred_img, cv.COLOR_BGR2HSV)

@@ -23,13 +23,14 @@ def img_find_line(img, draw=True):
 
 if __name__ == '__main__':
     video_dir_name = '/home/hairui/Videos/experiments/'
-    video_name = 'test2.avi'
+
+    video_name = '317-1.avi'
     video_capture = cv.VideoCapture(video_dir_name+video_name)
     if video_capture.isOpened():
         ret = True
         while ret:
             ret, img = video_capture.read()
-            img = cv.flip(img, 0)  # images in this video is upsidedown
+            #img = cv.flip(img, 0)  # images in this video is upsidedown
             img_find_line(img)
             cv.imshow('video', img)
             if cv.waitKey(5) == 27: break

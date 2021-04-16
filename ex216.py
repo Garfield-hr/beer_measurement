@@ -30,7 +30,7 @@ def ege_detection():
 
 
 if __name__ == '__main__':
-    vc = cv.VideoCapture('/home/hairui/Videos/experiments/test2.avi')
+    vc = cv.VideoCapture('/home/hairui/Videos/experiments/317-1.avi')
     if vc.isOpened():
         ret = True
         while ret:

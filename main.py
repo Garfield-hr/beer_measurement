@@ -36,7 +36,7 @@ print('please adjust camera for pouring measurement')
 adjust_camera(cam)
 
 fourcc = cv2.VideoWriter_fourcc('I', '4', '2', '0')
-output_video = cv2.VideoWriter("/home/hairui/Videos/experiments/test2.avi", fourcc, 24, (640, 600))
+output_video = cv2.VideoWriter("/home/hairui/Videos/experiments/317-11D.avi", fourcc, 24, (640, 600))
 
 try:
     while cv2.waitKey(1) != 27:
