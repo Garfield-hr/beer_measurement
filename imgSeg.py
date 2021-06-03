@@ -65,6 +65,7 @@ def grab_cut(img):
     img = img*mask2[:, :, np.newaxis]
     cv.imshow('dst', img)
     cv.waitKey(0)
+    cv.imwrite(dir_str+'output.jpeg', img)
 
 
 if __name__ == '__main__':

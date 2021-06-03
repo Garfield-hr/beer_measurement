@@ -83,9 +83,10 @@ class RoiByFourPoints:
 
 
 def foam_seg(image):
+    img = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
     threshold = 160
     min_width = 35
-    _, img_bin = cv.threshold(image, threshold, 255, cv.THRESH_BINARY)
+    _, img_bin = cv.threshold(img, threshold, 255, cv.THRESH_BINARY)
     img_bin[:10, :] = 0
     img_selected = np.zeros((img_bin.shape[0], img_bin.shape[1], 3), dtype=np.uint8)
     ret, labels, stats, centroids = cv.connectedComponentsWithStats(img_bin)
@@ -96,8 +97,8 @@ def foam_seg(image):
             area += np.sum(labels == ind)
             img_selected[labels == ind, 2] = 255
 
-    cv.imshow('gray', image)
-    cv.imshow('img_bin', img_bin)
+    cv.imshow('original', image)
+    cv.imshow('binary', img_bin)
     cv.imshow('selected', img_selected)
     cv.waitKey(1)
     return area
@@ -107,7 +108,7 @@ def func1():
     pic_dir = '/home/hairui/Pictures/experiment/'
     vid_dir = '/home/hairui/Videos/experiments/'
     img_name = '329-1.jpeg'
-    video_name = '317-10D.avi'
+    video_name = '317-9D.avi'
     video_capture = cv.VideoCapture(vid_dir + video_name)
 
     cam_roi = RoiByFourPoints(video_capture.read)
@@ -115,7 +116,7 @@ def func1():
     areas = []
 
     while ret:
-        img_n = cv.cvtColor(img_n, cv.COLOR_BGR2GRAY)
+        # img_n = cv.cvtColor(img_n, cv.COLOR_BGR2GRAY)
         areas.append(foam_seg(img_n))
         ret, img_n = cam_roi.get_roi_img()
 

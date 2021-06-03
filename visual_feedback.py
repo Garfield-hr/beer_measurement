@@ -1,3 +1,5 @@
+import math
+
 import cv2 as cv
 import numpy as np
 from copy import deepcopy
@@ -80,17 +82,19 @@ class RoiByFourPoints:
                      max(self.points[0][1], self.points[1][1], self.points[2][1], self.points[3][1])
             self.img_roi = img[y1:y2, x1:x2]
             ret, img = self.get_next_image()
-
+            
     def get_foam_ratio(self):
-        img = self.get_roi_img()
-        if img.shape == 3:
-            img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+        ret, img = self.get_roi_img()
+        if not ret:
+            return
+        if len(img.shape) == 3:
+            img_gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
         bin_thresh = 160
-        _, img_bin = cv.threshold(img, bin_thresh, 255, cv.THRESH_BINARY)
+        _, img_bin = cv.threshold(img_gray, bin_thresh, 255, cv.THRESH_BINARY)
 
         img_bin_row = np.sum(img_bin, axis=1)
-        beer_foam = 0
-        foam_air = 0
+        lower_line = 0
+        upper_line = 0
         max_diff = 0
         min_diff = 0
         num_rows = len(img_bin_row)
@@ -100,12 +104,55 @@ class RoiByFourPoints:
             diff = sum(img_bin_row[ind:]) / (num_rows - ind) - sum(img_bin_row[:ind]) / ind
             if diff > max_diff:
                 max_diff = diff
-                beer_foam = ind
+                upper_line = ind
             if diff < min_diff:
                 min_diff = diff
-                foam_air = ind
+                lower_line = ind
+        # oordinate of self.points and lines are not same
+        # fix it and add function to show result in figures
 
+        def x_by_two_points_and_y(xa, ya, xb, yb, y):
+            return xb + (y - yb) * (xb - xa) / (yb - ya)
 
+        x_lower_left = x_by_two_points_and_y(0, 0,
+                                             self.points[1][0] - self.points[0][0], self.points[1][1] - self.points[0][1],
+                                             lower_line)
+        x_lower_right = x_by_two_points_and_y(self.points[2][0] - self.points[0][0], self.points[2][1] - self.points[0][1],
+                                              self.points[3][0] - self.points[0][0], self.points[3][1] - self.points[0][1],
+                                              lower_line)
+        x_upper_left = x_by_two_points_and_y(0, 0,
+                                             self.points[1][0] - self.points[0][0], self.points[1][1] - self.points[0][1],
+                                             upper_line)
+        # h1 upper line to lower line
+        # h2 lower left to left corner
+        # h3 lower right to right corner
+        h1 = math.sqrt((x_upper_left - x_lower_left)**2 + (upper_line - lower_line)**2)
+        h2 = math.sqrt((x_lower_left - (self.points[1][0] - self.points[0][0]))**2 +
+                       (lower_line - (self.points[1][1] - self.points[0][1]))**2)
+        h3 = math.sqrt((x_lower_right - (self.points[2][0] - self.points[0][0]))**2 +
+                       (lower_line - (self.points[2][1] - self.points[0][1]))**2)
+
+        # for debug
+        cv.line(img, (0, lower_line), (img.shape[1], lower_line), (0, 0, 255), 1, 0)
+        cv.line(img, (0, upper_line), (img.shape[1], upper_line), (0, 255, 0), 1, 0)
+        [x_lower_left_int, x_lower_right_int, x_upper_left_int] =map(int, [x_lower_left, x_lower_right, x_upper_left])
+        cv.circle(img, (x_lower_left_int, lower_line), 3, (255, 0, 0), thickness=-1)
+        cv.circle(img, (x_lower_right_int, lower_line), 3, (255, 0, 0), thickness=-1)
+        cv.circle(img, (x_upper_left_int, upper_line), 3, (255, 0, 0), thickness=-1)
+        cv.putText(img, f'h2={h2}', (x_lower_left_int, lower_line), cv.FONT_HERSHEY_PLAIN,
+                       1.0, (255, 0, 0), thickness=1)
+        cv.putText(img, f' h3={h3}', (x_lower_right_int, lower_line), cv.FONT_HERSHEY_PLAIN,
+                   1.0, (255, 0, 0), thickness=1)
+        cv.putText(img, f' h1={h1}', (x_upper_left_int, upper_line), cv.FONT_HERSHEY_PLAIN,
+                   1.0, (255, 0, 0), thickness=1)
+        ratio = f"{(h2 + h3) / (2*h1)}"
+        cv.putText(img, ratio, (10, 10), cv.FONT_HERSHEY_PLAIN,
+                   1.0, (0, 255, 0), thickness=1)
+        cv.imshow('img', img)
+        cv.waitKey(1)
+
+        return (h2 + h3) / (2*h1)
+            
 
 
 def foam_seg(image):
@@ -138,15 +185,13 @@ def func1():
     video_capture = cv.VideoCapture(vid_dir + video_name)
 
     cam_roi = RoiByFourPoints(video_capture.read)
-    ret, img_n = cam_roi.get_roi_img()
-    areas = []
+    ratio = cam_roi.get_foam_ratio()
+    ratio_list = []
+    while ratio:
+        ratio_list.append(ratio)
+        ratio = cam_roi.get_foam_ratio()
 
-    while ret:
-        # img_n = cv.cvtColor(img_n, cv.COLOR_BGR2GRAY)
-        areas.append(foam_seg(img_n))
-        ret, img_n = cam_roi.get_roi_img()
-
-    plt.plot(areas)
+    plt.plot(ratio_list)
     plt.show()
 
 

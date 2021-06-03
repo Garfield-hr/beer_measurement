@@ -33,7 +33,7 @@ def two_region_max_diff(img, draw=False):
 
 if __name__ == '__main__':
     vid_dir = '/home/hairui/Videos/experiments/'
-    video_name = '317-11D.avi'
+    video_name = '317-9D.avi'
     video_capture = cv.VideoCapture(vid_dir + video_name)
 
     cam_roi = RoiByFourPoints(video_capture.read)
