@@ -11,6 +11,7 @@ class RoiByFourPoints:
         self.get_next_image = next_image
         self.points = []
         self.roi_size = 10
+        self.started = False
 
         # initialize 4 points by mouse click
         ret, self.img = self.get_next_image()
@@ -41,7 +42,7 @@ class RoiByFourPoints:
 
                 x, y = point
                 img_roi = deepcopy(img[max(0, y - self.roi_size):min(self.height, y + self.roi_size),
-                          max(0, x - self.roi_size): min(self.width, x + self.roi_size)])
+                                   max(0, x - self.roi_size): min(self.width, x + self.roi_size)])
                 # transfer to binary
                 if len(img_roi.shape) == 3:
                     img_roi = cv.cvtColor(img_roi.copy(), cv.COLOR_BGR2GRAY)
@@ -82,8 +83,8 @@ class RoiByFourPoints:
                      max(self.points[0][1], self.points[1][1], self.points[2][1], self.points[3][1])
             self.img_roi = img[y1:y2, x1:x2]
             ret, img = self.get_next_image()
-            
-    def get_foam_ratio(self):
+
+    def get_foam_ratio(self, debug=False):
         ret, img = self.get_roi_img()
         if not ret:
             return
@@ -91,6 +92,9 @@ class RoiByFourPoints:
             img_gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
         bin_thresh = 160
         _, img_bin = cv.threshold(img_gray, bin_thresh, 255, cv.THRESH_BINARY)
+        if not self.started:
+            self.started = self.if_pouring_started(img_bin)
+            return 0.0
 
         img_bin_row = np.sum(img_bin, axis=1)
         lower_line = 0
@@ -108,6 +112,7 @@ class RoiByFourPoints:
             if diff < min_diff:
                 min_diff = diff
                 lower_line = ind
+
         # oordinate of self.points and lines are not same
         # fix it and add function to show result in figures
 
@@ -115,44 +120,65 @@ class RoiByFourPoints:
             return xb + (y - yb) * (xb - xa) / (yb - ya)
 
         x_lower_left = x_by_two_points_and_y(0, 0,
-                                             self.points[1][0] - self.points[0][0], self.points[1][1] - self.points[0][1],
+                                             self.points[1][0] - self.points[0][0],
+                                             self.points[1][1] - self.points[0][1],
                                              lower_line)
-        x_lower_right = x_by_two_points_and_y(self.points[2][0] - self.points[0][0], self.points[2][1] - self.points[0][1],
-                                              self.points[3][0] - self.points[0][0], self.points[3][1] - self.points[0][1],
+        x_lower_right = x_by_two_points_and_y(self.points[2][0] - self.points[0][0],
+                                              self.points[2][1] - self.points[0][1],
+                                              self.points[3][0] - self.points[0][0],
+                                              self.points[3][1] - self.points[0][1],
                                               lower_line)
         x_upper_left = x_by_two_points_and_y(0, 0,
-                                             self.points[1][0] - self.points[0][0], self.points[1][1] - self.points[0][1],
+                                             self.points[1][0] - self.points[0][0],
+                                             self.points[1][1] - self.points[0][1],
                                              upper_line)
         # h1 upper line to lower line
         # h2 lower left to left corner
         # h3 lower right to right corner
-        h1 = math.sqrt((x_upper_left - x_lower_left)**2 + (upper_line - lower_line)**2)
-        h2 = math.sqrt((x_lower_left - (self.points[1][0] - self.points[0][0]))**2 +
-                       (lower_line - (self.points[1][1] - self.points[0][1]))**2)
-        h3 = math.sqrt((x_lower_right - (self.points[2][0] - self.points[0][0]))**2 +
-                       (lower_line - (self.points[2][1] - self.points[0][1]))**2)
+        h1 = math.sqrt((x_upper_left - x_lower_left) ** 2 + (upper_line - lower_line) ** 2)
+        h2 = math.sqrt((x_lower_left - (self.points[1][0] - self.points[0][0])) ** 2 +
+                       (lower_line - (self.points[1][1] - self.points[0][1])) ** 2)
+        h3 = math.sqrt((x_lower_right - (self.points[2][0] - self.points[0][0])) ** 2 +
+                       (lower_line - (self.points[2][1] - self.points[0][1])) ** 2)
 
         # for debug
-        cv.line(img, (0, lower_line), (img.shape[1], lower_line), (0, 0, 255), 1, 0)
-        cv.line(img, (0, upper_line), (img.shape[1], upper_line), (0, 255, 0), 1, 0)
-        [x_lower_left_int, x_lower_right_int, x_upper_left_int] =map(int, [x_lower_left, x_lower_right, x_upper_left])
-        cv.circle(img, (x_lower_left_int, lower_line), 3, (255, 0, 0), thickness=-1)
-        cv.circle(img, (x_lower_right_int, lower_line), 3, (255, 0, 0), thickness=-1)
-        cv.circle(img, (x_upper_left_int, upper_line), 3, (255, 0, 0), thickness=-1)
-        cv.putText(img, f'h2={h2}', (x_lower_left_int, lower_line), cv.FONT_HERSHEY_PLAIN,
+        if debug:
+            cv.line(img, (0, lower_line), (img.shape[1], lower_line), (0, 0, 255), 1, 0)
+            cv.line(img, (0, upper_line), (img.shape[1], upper_line), (0, 255, 0), 1, 0)
+            [x_lower_left_int, x_lower_right_int, x_upper_left_int] = map(int,
+                                                                          [x_lower_left, x_lower_right, x_upper_left])
+            cv.circle(img, (x_lower_left_int, lower_line), 3, (255, 0, 0), thickness=-1)
+            cv.circle(img, (x_lower_right_int, lower_line), 3, (255, 0, 0), thickness=-1)
+            cv.circle(img, (x_upper_left_int, upper_line), 3, (255, 0, 0), thickness=-1)
+            cv.putText(img, f'h2={h2}', (x_lower_left_int, lower_line), cv.FONT_HERSHEY_PLAIN,
                        1.0, (255, 0, 0), thickness=1)
-        cv.putText(img, f' h3={h3}', (x_lower_right_int, lower_line), cv.FONT_HERSHEY_PLAIN,
-                   1.0, (255, 0, 0), thickness=1)
-        cv.putText(img, f' h1={h1}', (x_upper_left_int, upper_line), cv.FONT_HERSHEY_PLAIN,
-                   1.0, (255, 0, 0), thickness=1)
-        ratio = f"{(h2 + h3) / (2*h1)}"
-        cv.putText(img, ratio, (10, 10), cv.FONT_HERSHEY_PLAIN,
-                   1.0, (0, 255, 0), thickness=1)
-        cv.imshow('img', img)
-        cv.waitKey(1)
+            cv.putText(img, f'h3={h3}', (x_lower_right_int, lower_line), cv.FONT_HERSHEY_PLAIN,
+                       1.0, (255, 0, 0), thickness=1)
+            cv.putText(img, f'h1={h1}', (x_upper_left_int, upper_line), cv.FONT_HERSHEY_PLAIN,
+                       1.0, (255, 0, 0), thickness=1)
+            ratio = f"{(h2 + h3) / (2 * h1)}"
+            cv.putText(img, ratio, (10, 10), cv.FONT_HERSHEY_PLAIN,
+                       1.0, (0, 255, 0), thickness=1)
+            cv.imshow('img', img)
+            cv.waitKey(1)
 
-        return (h2 + h3) / (2*h1)
-            
+        return (h2 + h3) / (2 * h1)
+
+    def if_pouring_started(self, img_bin):
+        min_length = 0.75*(self.points[2][0] - self.points[1][0])
+        img_selected = np.zeros((img_bin.shape[0], img_bin.shape[1], 3), dtype=np.uint8)
+        ret, labels, stats, centroids = cv.connectedComponentsWithStats(img_bin)
+        area = 0
+        this_img_started = False
+        for ind, stat in enumerate(stats):
+            if not ind: continue
+            if stat[2] > min_length:
+                area += np.sum(labels == ind)
+                img_selected[labels == ind, 2] = 255
+                this_img_started = True
+        return this_img_started
+
+
 
 
 def foam_seg(image):
@@ -185,11 +211,11 @@ def func1():
     video_capture = cv.VideoCapture(vid_dir + video_name)
 
     cam_roi = RoiByFourPoints(video_capture.read)
-    ratio = cam_roi.get_foam_ratio()
+    ratio = cam_roi.get_foam_ratio(debug=True)
     ratio_list = []
-    while ratio:
+    while isinstance(ratio, (int, float)):
         ratio_list.append(ratio)
-        ratio = cam_roi.get_foam_ratio()
+        ratio = cam_roi.get_foam_ratio(debug=True)
 
     plt.plot(ratio_list)
     plt.show()
@@ -200,8 +226,9 @@ def func2():
     vid_dir = '/home/hairui/Videos/experiments/'
     img_name = '329-1.jpeg'
     video_name = '317-8D.avi'
-    img = cv.imread(pic_dir+img_name)
+    img = cv.imread(pic_dir + img_name)
     img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+
     def read_img():
         return True, img
 
@@ -209,7 +236,6 @@ def func2():
     ret, img_roi = cam_roi.get_roi_img()
     _, img_bin = cv.threshold(img_roi, 160, 255, cv.THRESH_BINARY)
     ret, labels, stats, centroids = cv.connectedComponentsWithStats(img_bin)
-
 
 
 if __name__ == '__main__':
